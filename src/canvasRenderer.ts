@@ -17,23 +17,39 @@ export type ViewBox = [minX: number, minY: number, width: number, height: number
 export const BITMAP_BG = "#1a1a1a";
 export const BITMAP_FG = "#ffa500";
 
+export interface DrawOptions {
+  size?: number;
+  /** Content alignment when it doesn't fill the square: true = centered
+   *  (default, relatively equal bands), false = flush top-left, all
+   *  excess pushed to right/bottom. */
+  centered?: boolean;
+}
+
 /** Draw a bitmap into an existing 2D context (square canvas of `size` px). */
 export function drawBitmapToContext(
   ctx: CanvasRenderingContext2D,
   rects: Rect[],
   viewBox: ViewBox,
-  size = 1024
+  sizeOrOpts: number | DrawOptions = 1024
 ): void {
+  const opts: DrawOptions =
+    typeof sizeOrOpts === "number" ? { size: sizeOrOpts } : sizeOrOpts;
+  const size = opts.size ?? 1024;
+  const centered = opts.centered ?? true;
   const [, , vbW, vbH] = viewBox;
   const width = Math.max(1, vbW);
   const height = Math.max(1, vbH);
 
   // Uniform scale fit to the gap-trimmed longer side: never distorts
-  // squares, makes top/bottom flush, keeps equal centering bands on the
-  // sides for non-square content.
+  // squares, makes the flush axes edge-to-edge, keeps the remainder as
+  // bands on the other side (centered) or right/bottom (top-left aligned).
   const scale = size / (Math.max(width, height) - 0.5);
-  const offsetX = Math.floor((size - (width - 0.5) * scale) / 2);
-  const offsetY = Math.floor((size - (height - 0.5) * scale) / 2);
+  const offsetX = centered
+    ? Math.floor((size - (width - 0.5) * scale) / 2)
+    : 0;
+  const offsetY = centered
+    ? Math.floor((size - (height - 0.5) * scale) / 2)
+    : 0;
   const gap = 0.5 * scale;
 
   ctx.fillStyle = BITMAP_BG;
@@ -60,13 +76,16 @@ export function bitmapCanvasSize(
 export function createBitmapCanvas(
   rects: Rect[],
   viewBox: ViewBox,
-  size = 1024
+  sizeOrOpts: number | DrawOptions = 1024
 ): HTMLCanvasElement {
+  const opts: DrawOptions =
+    typeof sizeOrOpts === "number" ? { size: sizeOrOpts } : sizeOrOpts;
+  const size = opts.size ?? 1024;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas context unavailable");
-  drawBitmapToContext(ctx, rects, viewBox, size);
+  drawBitmapToContext(ctx, rects, viewBox, opts);
   return canvas;
 }

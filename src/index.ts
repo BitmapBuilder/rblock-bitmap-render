@@ -16,6 +16,7 @@ export {
   BITMAP_FG,
   type Rect,
   type ViewBox,
+  type DrawOptions,
 } from "./canvasRenderer.js";
 export {
   encodeBitmapBlob,

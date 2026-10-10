@@ -15,6 +15,9 @@ import type { Rect, ViewBox } from "./canvasRenderer.js";
 export interface RenderOptions {
   /** Output square pixel size. Default 1024. */
   size?: number;
+  /** Content alignment: true = centered (default), false = flush top-left
+   *  with all excess on the right/bottom. Formatting only, no algorithm change. */
+  centered?: boolean;
 }
 
 const BG = { r: 0x1a, g: 0x1a, b: 0x1a };
@@ -32,8 +35,12 @@ export async function renderWebp(
   const height = Math.max(1, vbH);
 
   const scale = size / (Math.max(width, height) - 0.5);
-  const offsetX = Math.floor((size - (width - 0.5) * scale) / 2);
-  const offsetY = Math.floor((size - (height - 0.5) * scale) / 2);
+  const offsetX = opts.centered === false
+    ? 0
+    : Math.floor((size - (width - 0.5) * scale) / 2);
+  const offsetY = opts.centered === false
+    ? 0
+    : Math.floor((size - (height - 0.5) * scale) / 2);
 
   const px = Buffer.alloc(size * size * 4);
   for (let i = 0; i < size * size; i++) {

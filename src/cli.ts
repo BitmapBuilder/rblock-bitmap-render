@@ -25,6 +25,7 @@ interface Args {
   out: string;
   dumpValues: boolean;
   skipExisting: boolean;
+  centered: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -33,6 +34,7 @@ function parseArgs(argv: string[]): Args {
   let out = "output";
   let dumpValues = false;
   let skipExisting = false;
+  let centered = true;
   let from: number | null = null;
   let to: number | null = null;
 
@@ -53,6 +55,8 @@ function parseArgs(argv: string[]): Args {
       dumpValues = true;
     } else if (a === "--skip-existing") {
       skipExisting = true;
+    } else if (a === "--no-center" || a === "--top-left") {
+      centered = false;
     } else if (a === "--from") {
       from = parseInt(needValue(a, i++), 10);
     } else if (a === "--to") {
@@ -75,10 +79,10 @@ function parseArgs(argv: string[]): Args {
     console.error("usage: cli <height> [...] | --from N --to N [--size N] [--out DIR] [--dump-values] [--skip-existing]");
     process.exit(1);
   }
-  return { heights, size, out, dumpValues, skipExisting };
+  return { heights, size, out, dumpValues, skipExisting, centered };
 }
 
-async function renderBlock(height: number, size: number, outDir: string, dumpValues: boolean): Promise<void> {
+async function renderBlock(height: number, size: number, outDir: string, dumpValues: boolean, centered = true): Promise<void> {
   const t0 = Date.now();
   console.log(`block ${height}: fetching /r/block/${height}...`);
   const hex = await fetchRawBlockHex(height);
@@ -95,7 +99,7 @@ async function renderBlock(height: number, size: number, outDir: string, dumpVal
   const { rects, viewBox } = generateMondrianArray(txValues);
   console.log(`  mondrian: ${rects.length} squares, viewBox ${viewBox.join(" ")}`);
 
-  const webp = await renderWebp(rects, viewBox, { size });
+  const webp = await renderWebp(rects, viewBox, { size, centered });
   const outPath = join(outDir, `${height}.webp`);
   writeFileSync(outPath, webp);
   console.log(`  wrote ${outPath} (${(webp.length / 1024).toFixed(1)} KB, ${size}px, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
@@ -113,7 +117,7 @@ async function main(): Promise<void> {
       continue;
     }
     try {
-      await renderBlock(h, args.size, args.out, args.dumpValues);
+      await renderBlock(h, args.size, args.out, args.dumpValues, args.centered);
       done++;
     } catch (err) {
       failed++;
