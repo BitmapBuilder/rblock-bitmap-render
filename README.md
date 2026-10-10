@@ -43,7 +43,10 @@ Two worlds, one core:
     const hex = await fetchRawBlockHex(height);          // one /r/block fetch
     const { txValues } = parseRawBlock(hexToBytes(hex));
     const { rects, viewBox } = generateMondrianArray(txValues);
-    drawBitmapToContext(canvas.getContext("2d"), rects, viewBox, 512);
+    // canvas sized to content aspect (flush edges, squares stay square):
+    const { width, height } = bitmapCanvasSize(viewBox, 512);
+    canvas.width = width; canvas.height = height;
+    drawBitmapToContext(canvas.getContext("2d"), rects, viewBox);
 
 ### Consuming from an app that SAVES FILES (download in browser)
 

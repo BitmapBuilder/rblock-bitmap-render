@@ -11,6 +11,7 @@ export { generateMondrianArray, type MondrianResult } from "./mondrian.js";
 export {
   drawBitmapToContext,
   createBitmapCanvas,
+  bitmapCanvasSize,
   BITMAP_BG,
   BITMAP_FG,
   type Rect,

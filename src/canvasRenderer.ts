@@ -16,46 +16,70 @@ export type ViewBox = [minX: number, minY: number, width: number, height: number
 export const BITMAP_BG = "#1a1a1a";
 export const BITMAP_FG = "#ffa500";
 
-/** Draw a bitmap into an existing 2D context (canvas of `size` x `size` px). */
+/** Draw a bitmap into an existing 2D context sized via bitmapCanvasSize(). */
 export function drawBitmapToContext(
   ctx: CanvasRenderingContext2D,
   rects: Rect[],
-  viewBox: ViewBox,
-  size: number
+  viewBox: ViewBox
 ): void {
   const [, , vbW, vbH] = viewBox;
   const width = Math.max(1, vbW);
   const height = Math.max(1, vbH);
 
-  const scale = Math.min(size / width, size / height);
-  const offsetX = Math.floor((size - width * scale) / 2);
-  const offsetY = Math.floor((size - height * scale) / 2);
+  // Uniform scale, never distorts squares. With a canvas sized by
+  // bitmapCanvasSize() the offsets are 0 and the art is flush on all edges.
+  const scale = Math.min(
+    ctx.canvas.width / (width - 0.5),
+    ctx.canvas.height / (height - 0.5)
+  );
+  const offsetX = (ctx.canvas.width - (width - 0.5) * scale) / 2;
+  const offsetY = (ctx.canvas.height - (height - 0.5) * scale) / 2;
   const gap = 0.5 * scale;
 
   ctx.fillStyle = BITMAP_BG;
-  ctx.fillRect(0, 0, size, size);
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
   ctx.fillStyle = BITMAP_FG;
   for (const [x, y, s] of rects) {
     if (s <= 0) continue;
-    // Edge-to-edge: boundary squares render flush; -0.5 gap only BETWEEN squares.
-    const w = Math.max(1, s * scale - (x + s >= vbW ? 0 : gap));
-    const h = Math.max(1, s * scale - (y + s >= vbH ? 0 : gap));
-    ctx.fillRect(offsetX + x * scale, offsetY + y * scale, w, h);
+    // Squares are ALWAYS square: uniform -0.5 gap on both axes.
+    const w = Math.max(1, s * scale - gap);
+    ctx.fillRect(offsetX + x * scale, offsetY + y * scale, w, w);
   }
 }
 
-/** Create a standalone canvas element with the bitmap rendered at `size` px. */
+/**
+ * Exact canvas dimensions for a bitmap: content aspect ratio (like the
+ * original SVG's width=100% height=auto), with the trailing 0.5-unit gap
+ * removed so the art is flush on all four edges. `longSide` caps the
+ * longer dimension.
+ */
+export function bitmapCanvasSize(
+  viewBox: ViewBox,
+  longSide = 1024
+): { width: number; height: number } {
+  const [, , vbW, vbH] = viewBox;
+  const width = Math.max(1, vbW);
+  const height = Math.max(1, vbH);
+  const scale = longSide / Math.max(width, height);
+  return {
+    width: Math.max(1, Math.round((width - 0.5) * scale)),
+    height: Math.max(1, Math.round((height - 0.5) * scale)),
+  };
+}
+
+/** Create a standalone canvas element with the bitmap rendered (content-aspect). */
 export function createBitmapCanvas(
   rects: Rect[],
   viewBox: ViewBox,
-  size = 1024
+  longSide = 1024
 ): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  const { width, height } = bitmapCanvasSize(viewBox, longSide);
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas context unavailable");
-  drawBitmapToContext(ctx, rects, viewBox, size);
+  drawBitmapToContext(ctx, rects, viewBox);
   return canvas;
 }
