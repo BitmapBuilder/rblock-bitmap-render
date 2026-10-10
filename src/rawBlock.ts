@@ -28,6 +28,10 @@ export async function fetchRawBlockHex(height: number): Promise<string> {
 
 export function hexToBytes(hex: string): Uint8Array {
   if (hex.length % 2 !== 0) throw new Error("hex string has odd length");
+  // Fast path: Node Buffer (C++ hex decoder)
+  if (typeof Buffer !== "undefined") {
+    return new Uint8Array(Buffer.from(hex, "hex"));
+  }
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i++) {
     out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);

@@ -14,7 +14,7 @@
 export type Rect = [x: number, y: number, size: number];
 export type ViewBox = [minX: number, minY: number, width: number, height: number];
 
-export const BITMAP_BG = "#1a1a1a";
+export const BITMAP_BG = "#0d0d0d";
 export const BITMAP_FG = "#ffa500";
 
 export interface DrawOptions {
