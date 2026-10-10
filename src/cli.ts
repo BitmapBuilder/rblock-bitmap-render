@@ -36,7 +36,7 @@ function parseArgs(argv: string[]): Args {
   let dumpValues = false;
   let skipExisting = false;
   let centered = true;
-  let concurrency = 8;
+  let concurrency = 16;
   let from: number | null = null;
   let to: number | null = null;
 
