@@ -13,11 +13,13 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { brotliCompressSync, constants } from "node:zlib";
 import { join } from "node:path";
 import { fetchRawBlockHex, hexToBytes } from "./rawBlock.js";
 import { parseRawBlock } from "./blockParser.js";
 import { generateMondrianArray } from "./mondrian.js";
 import { renderWebp } from "./webpRenderer.js";
+import { renderSvg } from "./svgRenderer.js";
 
 interface Args {
   heights: number[];
@@ -26,7 +28,9 @@ interface Args {
   dumpValues: boolean;
   skipExisting: boolean;
   centered: boolean;
+  native: boolean;
   concurrency: number;
+  format: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -36,7 +40,9 @@ function parseArgs(argv: string[]): Args {
   let dumpValues = false;
   let skipExisting = false;
   let centered = true;
-  let concurrency = 16;
+  let native = false;
+  let concurrency = 32;
+  let format = "webp";
   let from: number | null = null;
   let to: number | null = null;
 
@@ -59,6 +65,14 @@ function parseArgs(argv: string[]): Args {
       skipExisting = true;
     } else if (a === "--no-center" || a === "--top-left") {
       centered = false;
+    } else if (a === "--svg") {
+      format = "svg";
+    } else if (a === "--svg-br") {
+      format = "svg-br";
+    } else if (a === "--format") {
+      format = needValue(a, i++);
+    } else if (a === "--native") {
+      native = true;
     } else if (a === "--concurrency" || a === "-c") {
       concurrency = Math.max(1, parseInt(needValue(a, i++), 10) || 8);
     } else if (a === "--from") {
@@ -83,10 +97,10 @@ function parseArgs(argv: string[]): Args {
     console.error("usage: cli <height> [...] | --from N --to N [--size N] [--out DIR] [--dump-values] [--skip-existing]");
     process.exit(1);
   }
-  return { heights, size, out, dumpValues, skipExisting, centered, concurrency };
+  return { heights, size, out, dumpValues, skipExisting, centered, concurrency, native, format };
 }
 
-async function renderBlock(height: number, size: number, outDir: string, dumpValues: boolean, centered = true): Promise<void> {
+async function renderBlock(height: number, size: number, outDir: string, dumpValues: boolean, centered = true, native = false, format = "webp"): Promise<void> {
   const t0 = Date.now();
   console.log(`block ${height}: fetching /r/block/${height}...`);
   const hex = await fetchRawBlockHex(height);
@@ -103,10 +117,30 @@ async function renderBlock(height: number, size: number, outDir: string, dumpVal
   const { rects, viewBox } = generateMondrianArray(txValues);
   console.log(`  mondrian: ${rects.length} squares, viewBox ${viewBox.join(" ")}`);
 
-  const webp = await renderWebp(rects, viewBox, { size, centered });
+  if (format === "svg") {
+    const svg = renderSvg(rects, viewBox, { size });
+    const outPath = join(outDir, `${height}.svg`);
+    writeFileSync(outPath, svg);
+    console.log(`  wrote ${outPath} (${(Buffer.byteLength(svg) / 1024).toFixed(1)} KB, static svg ${size}px, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
+    return;
+  }
+
+  if (format === "svg-br") {
+    const svg = renderSvg(rects, viewBox, { size });
+    const br = brotliCompressSync(Buffer.from(svg), {
+      params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
+    });
+    const outPath = join(outDir, `${height}.svg.br`);
+    writeFileSync(outPath, br);
+    console.log(`  wrote ${outPath} (${(br.length / 1024).toFixed(1)} KB brotli, from ${(Buffer.byteLength(svg) / 1024).toFixed(1)} KB raw, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
+    return;
+  }
+
+  const webp = await renderWebp(rects, viewBox, { size, centered, native });
   const outPath = join(outDir, `${height}.webp`);
   writeFileSync(outPath, webp);
-  console.log(`  wrote ${outPath} (${(webp.length / 1024).toFixed(1)} KB, ${size}px, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
+  const mode = native ? "native grid" : "direct";
+  console.log(`  wrote ${outPath} (${(webp.length / 1024).toFixed(1)} KB, ${mode}, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
 }
 
 async function main(): Promise<void> {
@@ -134,7 +168,7 @@ async function main(): Promise<void> {
         continue;
       }
       try {
-        await renderBlock(h, args.size, args.out, args.dumpValues, args.centered);
+        await renderBlock(h, args.size, args.out, args.dumpValues, args.centered, args.native, args.format);
         done++;
       } catch (err) {
         failed++;
