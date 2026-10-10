@@ -37,16 +37,13 @@ Two worlds, one core:
 ### Consuming from another app (Vite / inscribed) — display
 
     import { fetchRawBlockHex, hexToBytes, parseRawBlock,
-             generateMondrianArray, drawBitmapToContext, bitmapCanvasSize }
+             generateMondrianArray, drawBitmapToContext }
       from "rblock-bitmap-render/src";
 
     const hex = await fetchRawBlockHex(height);          // one /r/block fetch
     const { txValues } = parseRawBlock(hexToBytes(hex));
     const { rects, viewBox } = generateMondrianArray(txValues);
-    // canvas sized to content aspect (flush edges, squares stay square):
-    const { width, height } = bitmapCanvasSize(viewBox, 512);
-    canvas.width = width; canvas.height = height;
-    drawBitmapToContext(canvas.getContext("2d"), rects, viewBox);
+    drawBitmapToContext(canvas.getContext("2d"), rects, viewBox, 512);
 
 ### Consuming from an app that SAVES FILES (download in browser)
 
