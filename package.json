@@ -1,0 +1,31 @@
+{
+  "name": "rblock-bitmap-render",
+  "version": "0.2.1",
+  "description": "Bitmaps from Bitcoin raw blocks via ordinals.com /r/block endpoint. Mondrian layout, WebP lossless output.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "render": "node dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/webpRenderer.d.ts",
+      "default": "./dist/webpRenderer.js"
+    },
+    "./src": "./src/index.ts"
+  },
+  "dependencies": {
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^20.14.0"
+  }
+}
