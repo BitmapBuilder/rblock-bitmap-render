@@ -37,7 +37,7 @@ Two worlds, one core:
 ### Consuming from another app (Vite / inscribed) — display
 
     import { fetchRawBlockHex, hexToBytes, parseRawBlock,
-             generateMondrianArray, drawBitmapToContext }
+             generateMondrianArray, drawBitmapToContext, bitmapCanvasSize }
       from "rblock-bitmap-render/src";
 
     const hex = await fetchRawBlockHex(height);          // one /r/block fetch
