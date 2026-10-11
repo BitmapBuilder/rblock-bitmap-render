@@ -10,19 +10,19 @@ By default it writes a **static SVG** (vector, no script) at 512px. Pass
 
     npm install
     npm run build
-    npm run render -- --block 830000
+    npm run render -- 830000
 
 Writes `output/830000.svg`.
 
 Or, without npm:
 
-    node dist/cli.js --block 830000
+    node dist/cli.js 830000
 
 ## Flags
 
 | Flag | Default | What it does |
 |------|---------|--------------|
-| `--block N` | — | Block height. Repeat, or comma-separate, for several. |
+| `<height>` | — | Block height. Merge several with commas: `830000,830001`. |
 | `--range A-B` | — | Inclusive block range (e.g. `792000-793000`). |
 | `--webp` | off | Output a lossless WebP raster instead of SVG. |
 | `--size N` | `512` | Output size in pixels. |
@@ -37,25 +37,25 @@ Or, without npm:
 ## Examples
 
     # one block (SVG, default)
-    npm run render -- --block 830000
+    npm run render -- 830000
 
     # several blocks
-    npm run render -- --block 830000,830001,830002
+    npm run render -- 830000,830001,830002
 
     # a range
     npm run render -- --range 792000-793000
 
     # WebP instead of SVG, at a chosen size
-    npm run render -- --block 830000 --webp --size 1024
+    npm run render -- 830000 --webp --size 1024
 
     # custom colors
-    npm run render -- --block 830000 --parcels "#efbf20e3" --gaps "#1a1a1a"
+    npm run render -- 830000 --parcels "#f7921c" --gaps "#0d0d0d"
 
-    # a large range as WebP, resuming where it left off, 16 in parallel
+    # a large range as WebP, resuming where it left off, 32 in parallel
     npm run render -- --range 792000-900000 --webp --skip-existing --concurrency 32
 
     # flush the art to the top-left
-    npm run render -- --block 830000 --no-center
+    npm run render -- 830000 --no-center
 
     # into a specific folder
     npm run render -- --range 792000-793000 --out bitmapdir

@@ -4,9 +4,10 @@
  * Default output is a static SVG at 512px. Pass --webp for a lossless WebP
  * raster instead (then --size and --native apply).
  *
- * Every option is a named flag, so the syntax is uniform:
+ * Pass block heights as bare numbers (comma-separated for several), and ranges
+ * with --range:
  *
- *   --block N        a block height (repeatable, or comma-separated)
+ *   N                a block height (or comma-separated: 830000,830001)
  *   --range A-B      an inclusive block range
  *   --webp           output WebP instead of SVG
  *   --size N         output size in pixels
@@ -19,10 +20,10 @@
  *   --skip-existing  skip already-rendered blocks
  *
  * Examples:
- *   node dist/cli.js --block 830000
- *   node dist/cli.js --block 830000 --block 830001
+ *   node dist/cli.js 830000
+ *   node dist/cli.js 830000,830001
  *   node dist/cli.js --range 792000-793000 --skip-existing
- *   node dist/cli.js --block 830000 --webp --size 1024
+ *   node dist/cli.js 830000 --webp --size 1024
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -86,9 +87,7 @@ function parseArgs(argv: string[]): Args {
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--block") {
-      addBlocks(needValue(a, i++));
-    } else if (a === "--range") {
+    if (a === "--range") {
       heights.push(...parseRange(needValue(a, i++)));
     } else if (a === "--size") {
       size = parseInt(needValue(a, i++), 10);
@@ -113,14 +112,17 @@ function parseArgs(argv: string[]): Args {
       native = true;
     } else if (a === "--concurrency" || a === "-c") {
       concurrency = Math.max(1, parseInt(needValue(a, i++), 10) || 8);
-    } else {
+    } else if (a.startsWith("-")) {
       throw new Error(`unknown option: "${a}"`);
+    } else {
+      // bare block height(s): "830000" or "830000,830001"
+      addBlocks(a);
     }
   }
 
   if (heights.length === 0) {
     console.error(
-      "usage: cli --block N [--block N ...] | --range A-B [--webp] [--size N] [--out DIR] [--skip-existing]"
+      "usage: cli <height>[,<height>...] | --range A-B [--webp] [--size N] [--out DIR] [--skip-existing]"
     );
     process.exit(1);
   }
