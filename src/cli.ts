@@ -1,106 +1,137 @@
 /**
- * CLI: render bitmap WebPs from ordinals.com /r/block data.
+ * CLI: render bitmap images from ordinals.com /r/block data.
  *
- * Usage:
- *   node dist/cli.ts <height> [<height2> ...] [--from N --to N]
- *                     [--size 1024] [--out DIR] [--dump-values]
- *                     [--skip-existing]
+ * Default output is a static SVG at 512px. Pass --webp for a lossless WebP
+ * raster instead (then --size and --native apply).
+ *
+ * Every option is a named flag, so the syntax is uniform:
+ *
+ *   --block N        a block height (repeatable, or comma-separated)
+ *   --range A-B      an inclusive block range
+ *   --webp           output WebP instead of SVG
+ *   --size N         output size in pixels
+ *   --parcels HEX    square color
+ *   --gaps HEX       background color
+ *   --native         WebP only: whole-pixel grid
+ *   --out DIR        output directory
+ *   --no-center      flush top-left instead of centered
+ *   --concurrency N  blocks fetched in parallel
+ *   --skip-existing  skip already-rendered blocks
  *
  * Examples:
- *   node dist/cli.ts 830000
- *   node dist/cli.ts 830000 830001 --size 512 --out output
- *   node dist/cli.ts --from 792000 --to 793000 --skip-existing
+ *   node dist/cli.js --block 830000
+ *   node dist/cli.js --block 830000 --block 830001
+ *   node dist/cli.js --range 792000-793000 --skip-existing
+ *   node dist/cli.js --block 830000 --webp --size 1024
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { brotliCompressSync, constants } from "node:zlib";
 import { join } from "node:path";
 import { fetchRawBlockHex, hexToBytes } from "./rawBlock.js";
 import { parseRawBlock } from "./blockParser.js";
 import { generateMondrianArray } from "./mondrian.js";
 import { renderWebp } from "./webpRenderer.js";
 import { renderSvg } from "./svgRenderer.js";
+import { parseHexColor, DEFAULT_PARCELS, DEFAULT_GAPS } from "./color.js";
 
 interface Args {
   heights: number[];
   size: number;
   out: string;
-  dumpValues: boolean;
   skipExisting: boolean;
   centered: boolean;
   native: boolean;
   concurrency: number;
-  format: string;
+  format: "svg" | "webp";
+  parcels: string;
+  gaps: string;
+}
+
+/** Parse "792000-793000" (inclusive) into an explicit list of heights. */
+function parseRange(spec: string): number[] {
+  const m = spec.match(/^(\d+)-(\d+)$/);
+  if (!m) throw new Error(`invalid --range "${spec}" (expected START-END, e.g. 792000-793000)`);
+  const start = parseInt(m[1], 10);
+  const end = parseInt(m[2], 10);
+  if (end < start) throw new Error(`--range end (${end}) is before start (${start})`);
+  const out: number[] = [];
+  for (let h = start; h <= end; h++) out.push(h);
+  return out;
 }
 
 function parseArgs(argv: string[]): Args {
   const heights: number[] = [];
-  let size = 1024;
+  let size = 512;
   let out = "output";
-  let dumpValues = false;
   let skipExisting = false;
   let centered = true;
   let native = false;
   let concurrency = 32;
-  let format = "webp";
-  let from: number | null = null;
-  let to: number | null = null;
+  let format: "svg" | "webp" = "svg";
+  let parcels = DEFAULT_PARCELS;
+  let gaps = DEFAULT_GAPS;
 
   const needValue = (flag: string, i: number): string => {
     const v = argv[++i];
     if (v === undefined) throw new Error(`${flag} requires a value`);
     return v;
   };
+  const addBlocks = (spec: string): void => {
+    for (const piece of spec.split(",")) {
+      const h = parseInt(piece.trim(), 10);
+      if (!Number.isFinite(h) || h < 0) throw new Error(`invalid block height: "${piece}"`);
+      heights.push(h);
+    }
+  };
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--size") {
+    if (a === "--block") {
+      addBlocks(needValue(a, i++));
+    } else if (a === "--range") {
+      heights.push(...parseRange(needValue(a, i++)));
+    } else if (a === "--size") {
       size = parseInt(needValue(a, i++), 10);
       if (!Number.isFinite(size) || size < 16) throw new Error(`invalid --size`);
     } else if (a === "--out") {
       out = needValue(a, i++);
-    } else if (a === "--dump-values") {
-      dumpValues = true;
+    } else if (a === "--parcels") {
+      parcels = needValue(a, i++);
+      parseHexColor(parcels); // validated once, reused for every block
+    } else if (a === "--gaps") {
+      gaps = needValue(a, i++);
+      parseHexColor(gaps);
     } else if (a === "--skip-existing") {
       skipExisting = true;
-    } else if (a === "--no-center" || a === "--top-left") {
+    } else if (a === "--no-center") {
       centered = false;
     } else if (a === "--svg") {
       format = "svg";
-    } else if (a === "--svg-br") {
-      format = "svg-br";
-    } else if (a === "--format") {
-      format = needValue(a, i++);
+    } else if (a === "--webp") {
+      format = "webp";
     } else if (a === "--native") {
       native = true;
     } else if (a === "--concurrency" || a === "-c") {
       concurrency = Math.max(1, parseInt(needValue(a, i++), 10) || 8);
-    } else if (a === "--from") {
-      from = parseInt(needValue(a, i++), 10);
-    } else if (a === "--to") {
-      to = parseInt(needValue(a, i++), 10);
     } else {
-      const h = parseInt(a, 10);
-      if (!Number.isFinite(h) || h < 0) throw new Error(`invalid block height: ${a}`);
-      heights.push(h);
+      throw new Error(`unknown option: "${a}"`);
     }
   }
 
-  if (from !== null || to !== null) {
-    const start = from ?? 0;
-    const end = to ?? start;
-    if (end < start) throw new Error(`--to (${end}) < --from (${start})`);
-    for (let h = start; h <= end; h++) heights.push(h);
-  }
-
   if (heights.length === 0) {
-    console.error("usage: cli <height> [...] | --from N --to N [--size N] [--out DIR] [--dump-values] [--skip-existing]");
+    console.error(
+      "usage: cli --block N [--block N ...] | --range A-B [--webp] [--size N] [--out DIR] [--skip-existing]"
+    );
     process.exit(1);
   }
-  return { heights, size, out, dumpValues, skipExisting, centered, concurrency, native, format };
+  return { heights, size, out, skipExisting, centered, concurrency, native, format, parcels, gaps };
 }
 
-async function renderBlock(height: number, size: number, outDir: string, dumpValues: boolean, centered = true, native = false, format = "webp"): Promise<void> {
+async function renderBlock(
+  height: number,
+  args: Args
+): Promise<void> {
+  const { size, out: outDir, centered, native, format, parcels, gaps } = args;
   const t0 = Date.now();
   console.log(`block ${height}: fetching /r/block/${height}...`);
   const hex = await fetchRawBlockHex(height);
@@ -110,33 +141,18 @@ async function renderBlock(height: number, size: number, outDir: string, dumpVal
   const { txCount, txValues } = parseRawBlock(raw);
   console.log(`  parsed ${txCount} txs`);
 
-  if (dumpValues) {
-    writeFileSync(join(outDir, `${height}.txvalues.json`), JSON.stringify(txValues));
-  }
-
   const { rects, viewBox } = generateMondrianArray(txValues);
   console.log(`  mondrian: ${rects.length} squares, viewBox ${viewBox.join(" ")}`);
 
   if (format === "svg") {
-    const svg = renderSvg(rects, viewBox, { size });
+    const svg = renderSvg(rects, viewBox, { size, centered, parcels, gaps });
     const outPath = join(outDir, `${height}.svg`);
     writeFileSync(outPath, svg);
-    console.log(`  wrote ${outPath} (${(Buffer.byteLength(svg) / 1024).toFixed(1)} KB, static svg ${size}px, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
+    console.log(`  wrote ${outPath} (${(Buffer.byteLength(svg) / 1024).toFixed(1)} KB, svg ${size}px, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
     return;
   }
 
-  if (format === "svg-br") {
-    const svg = renderSvg(rects, viewBox, { size });
-    const br = brotliCompressSync(Buffer.from(svg), {
-      params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
-    });
-    const outPath = join(outDir, `${height}.svg.br`);
-    writeFileSync(outPath, br);
-    console.log(`  wrote ${outPath} (${(br.length / 1024).toFixed(1)} KB brotli, from ${(Buffer.byteLength(svg) / 1024).toFixed(1)} KB raw, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
-    return;
-  }
-
-  const webp = await renderWebp(rects, viewBox, { size, centered, native });
+  const webp = await renderWebp(rects, viewBox, { size, centered, native, parcels, gaps });
   const outPath = join(outDir, `${height}.webp`);
   writeFileSync(outPath, webp);
   const mode = native ? "native grid" : "direct";
@@ -147,6 +163,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   mkdirSync(args.out, { recursive: true });
 
+  const ext = args.format === "svg" ? "svg" : "webp";
   let done = 0;
   let failed = 0;
   const total = args.heights.length;
@@ -163,12 +180,12 @@ async function main(): Promise<void> {
     while (queue.length > 0) {
       const h = queue.shift();
       if (h === undefined) return;
-      if (args.skipExisting && existsSync(join(args.out, `${h}.webp`))) {
+      if (args.skipExisting && existsSync(join(args.out, `${h}.${ext}`))) {
         done++;
         continue;
       }
       try {
-        await renderBlock(h, args.size, args.out, args.dumpValues, args.centered, args.native, args.format);
+        await renderBlock(h, args);
         done++;
       } catch (err) {
         failed++;

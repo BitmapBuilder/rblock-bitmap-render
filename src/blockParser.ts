@@ -14,10 +14,8 @@
  *   (if segwit: per input [varint itemCount][varint len][item]...)
  *   [locktime:4]
  *
- * Extracts exactly what the Bitmap pipeline needs:
+ * Extracts what the bitmap pipeline needs from each block:
  *   txValues[i] = sum of all output values of tx i, in BTC (float)
- * This matches Bitmap-LENS-BLK bitmap_svg/block_parser.py:
- *   value_satoshis = sum(output.value for output in tx.outputs) / 1e8
  */
 
 export interface BlockTxData {

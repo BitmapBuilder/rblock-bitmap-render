@@ -1,6 +1,6 @@
 /**
- * Transaction classifier — direct port of Bitmap-LENS-BLK bitmap_svg/tx_classifier.py
- * Maps a tx amount (BTC) to an anatomy square size 1-10.
+ * Transaction classifier — maps a transaction amount (BTC) to a square size
+ * from 1 to 10, by value threshold. Larger amounts get larger squares.
  */
 
 const THRESHOLDS = [0.01, 0.1, 1, 10, 100, 1000, 10000, 100000, 1000000];

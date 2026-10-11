@@ -1,14 +1,12 @@
 /**
- * Mondrian layout — faithful TypeScript port of Bitmap-LENS-BLK
- * bitmap_svg/mondrian_layout.py (itself a port of MondrianLayout.js).
+ * Mondrian layout — squares packed into rows, each square taken from the
+ * first gap large enough to hold it.
  *
- * Notes on fidelity:
- * - Slot iteration/insertion order is preserved exactly (rows keep slots
- *   sorted by x; new slots append or insert at the first larger x).
- * - place() is first-fit: scans rows in order, slots in order, fills the
+ * Properties that matter for reproducing a bitmap exactly:
+ * - Slot iteration/insertion order is preserved (rows keep slots sorted by
+ *   x; new slots append or insert at the first larger x).
+ * - place() is first-fit: scans rows in order, slots in order, and fills the
  *   first slot with r >= size.
- * - The Python txMap is dead code (initialized empty, never grows, so
- *   set_tx_map_cell never writes). Omitted here.
  */
 
 export interface Position {
@@ -38,10 +36,6 @@ export class MondrianLayout {
   constructor(width: number, height: number) {
     this.width = width;
     this.height = height;
-  }
-
-  getSize(): { width: number; height: number } {
-    return { width: this.xMax, height: this.yMax };
   }
 
   getRow(position: Position): Row | null {

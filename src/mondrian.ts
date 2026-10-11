@@ -1,6 +1,9 @@
 /**
- * Mondrian array generator — port of Bitmap-LENS-BLK
- * bitmap_svg/generate_mondrian_array.py (TX Amount path).
+ * Mondrian array generator.
+ *
+ * Turns per-transaction amounts into the bitmap's square array: each amount
+ * is classified into a square size, a square canvas is sized to hold the
+ * total area, and squares are packed with a first-fit Mondrian layout.
  */
 
 import { classifyTransactions } from "./txClassifier.js";

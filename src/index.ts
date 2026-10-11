@@ -9,9 +9,15 @@ export { classifyTransaction, classifyTransactions } from "./txClassifier.js";
 export { MondrianLayout, type Slot, type Position } from "./mondrianLayout.js";
 export { generateMondrianArray, type MondrianResult } from "./mondrian.js";
 export {
+  parseHexColor,
+  hexToCss,
+  DEFAULT_PARCELS,
+  DEFAULT_GAPS,
+  type RGB,
+} from "./color.js";
+export {
   drawBitmapToContext,
   createBitmapCanvas,
-  bitmapCanvasSize,
   BITMAP_BG,
   BITMAP_FG,
   type Rect,

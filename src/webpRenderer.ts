@@ -16,10 +16,10 @@
 
 import sharp from "sharp";
 import type { Rect, ViewBox } from "./canvasRenderer.js";
+import { parseHexColor, DEFAULT_PARCELS, DEFAULT_GAPS, type RGB } from "./color.js";
 
 export interface RenderOptions {
-  /** Output square pixel size. Default 1024. Ignored in native mode
-   *  (used as the approximate target instead). */
+  /** Output square pixel size. Default 1024. */
   size?: number;
   /** Content alignment: true = centered (default), false = flush top-left
    *  with all excess on the right/bottom. Formatting only, no algorithm change. */
@@ -37,22 +37,25 @@ export interface RenderOptions {
    *  supersampling. `size` becomes the approximate target; actual output is
    *  the closest natural multiple of the viewBox. */
   native?: boolean;
+  /** Square color (hex). Default #f7921c. */
+  parcels?: string;
+  /** Background color (hex). Default #0d0d0d. */
+  gaps?: string;
 }
 
 /** Internal render resolution for supersampling. */
 const SUPER = 1024;
 
-const BG = { r: 0x1a, g: 0x1a, b: 0x1a };
-const FG = { r: 0xff, g: 0xa5, b: 0x00 }; // orange
-
 /** Rasterize the rect array into an RGBA buffer at directSize px.
- *  If scaleUnits is provided (native mode), use it directly as px/unit —
+ *  If scaleUnits is provided (native mode), use it directly as px/unit — 
  *  it must be an even integer so all edges land on whole pixels. */
 function rasterize(
   rects: Rect[],
   viewBox: ViewBox,
   directSize: number,
   centered: boolean,
+  fg: RGB,
+  bg: RGB,
   scaleUnits?: number
 ): { px: Buffer; size: number } {
   const size = directSize;
@@ -73,9 +76,9 @@ function rasterize(
 
   const px = Buffer.alloc(size * size * 4);
   for (let i = 0; i < size * size; i++) {
-    px[i * 4] = BG.r;
-    px[i * 4 + 1] = BG.g;
-    px[i * 4 + 2] = BG.b;
+    px[i * 4] = bg.r;
+    px[i * 4 + 1] = bg.g;
+    px[i * 4 + 2] = bg.b;
     px[i * 4 + 3] = 255;
   }
 
@@ -89,9 +92,9 @@ function rasterize(
     for (let yy = yi0; yy <= yi1; yy++) {
       let row = (yy * size + xi0) * 4;
       for (let xx = xi0; xx <= xi1; xx++) {
-        px[row] = FG.r;
-        px[row + 1] = FG.g;
-        px[row + 2] = FG.b;
+        px[row] = fg.r;
+        px[row + 1] = fg.g;
+        px[row + 2] = fg.b;
         px[row + 3] = 255;
         row += 4;
       }
@@ -116,6 +119,8 @@ export async function renderWebp(
 ): Promise<Buffer> {
   const outSize = opts.size ?? 1024;
   const centered = opts.centered !== false;
+  const fg = parseHexColor(opts.parcels ?? DEFAULT_PARCELS);
+  const bg = parseHexColor(opts.gaps ?? DEFAULT_GAPS);
 
   if (opts.native) {
     // NATIVE PIXEL GRID: even-integer px/unit scale so every square edge
@@ -127,7 +132,7 @@ export async function renderWebp(
     const nativeW = Math.round((Math.max(1, vbW) - 0.5) * s);
     const nativeH = Math.round((Math.max(1, vbH) - 0.5) * s);
     const side = Math.max(nativeW, nativeH);
-    const raster = rasterize(rects, viewBox, side, centered, s);
+    const raster = rasterize(rects, viewBox, side, centered, fg, bg, s);
     return sharp(raster.px, {
       raw: { width: raster.size, height: raster.size, channels: 4 },
     })
@@ -136,11 +141,10 @@ export async function renderWebp(
   }
 
   // Direct render is the default for every size: 2-color, clean, tiny.
-  // Supersampling is opt-in (opts.supersample) — it smooths gap placement
-  // but is either much larger (kept blended) or speckly (snapped back).
+  // Supersampling is opt-in (opts.supersample).
   if (opts.supersample) {
     const superRes = opts.superResolution ?? SUPER;
-    const raster = rasterize(rects, viewBox, superRes, centered);
+    const raster = rasterize(rects, viewBox, superRes, centered, fg, bg);
     const down = await sharp(raster.px, {
       raw: { width: raster.size, height: raster.size, channels: 4 },
     })
@@ -153,12 +157,12 @@ export async function renderWebp(
     for (let i = 0; i < n; i++) {
       const o = i * info.channels;
       const r = data[o], g = data[o + 1], b = data[o + 2];
-      const dFg = (r - FG.r) ** 2 + (g - FG.g) ** 2 + (b - FG.b) ** 2;
-      const dBg = (r - BG.r) ** 2 + (g - BG.g) ** 2 + (b - BG.b) ** 2;
+      const dFg = (r - fg.r) ** 2 + (g - fg.g) ** 2 + (b - fg.b) ** 2;
+      const dBg = (r - bg.r) ** 2 + (g - bg.g) ** 2 + (b - bg.b) ** 2;
       const isFg = dFg <= dBg;
-      data[o] = isFg ? FG.r : BG.r;
-      data[o + 1] = isFg ? FG.g : BG.g;
-      data[o + 2] = isFg ? FG.b : BG.b;
+      data[o] = isFg ? fg.r : bg.r;
+      data[o + 1] = isFg ? fg.g : bg.g;
+      data[o + 2] = isFg ? fg.b : bg.b;
     }
 
     return sharp(data, {
@@ -168,7 +172,7 @@ export async function renderWebp(
       .toBuffer();
   }
 
-  const raster = rasterize(rects, viewBox, outSize, centered);
+  const raster = rasterize(rects, viewBox, outSize, centered, fg, bg);
   return sharp(raster.px, {
     raw: { width: raster.size, height: raster.size, channels: 4 },
   })

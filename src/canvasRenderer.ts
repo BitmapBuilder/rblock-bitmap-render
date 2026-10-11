@@ -1,21 +1,22 @@
 /**
- * Canvas renderer — browser-safe. Draws the Mondrian rect array onto a
- * 2D canvas with the exact Bitmap rendering contract:
+ * Canvas renderer — browser-safe. Renders a bitmap's rect array onto a 2D
+ * canvas. This is the in-browser counterpart of webpRenderer (Node); both
+ * produce identical pixels for the same inputs.
  *
+ * Rendering contract:
  * - SQUARE output canvas, always
- * - background #1a1a1a, orange (#ffa500) squares
- * - every square drawn with a uniform -0.5-unit gap on both axes
- *   (squares are ALWAYS square — no boundary stretching)
- * - the trailing 0.5-unit gap is trimmed by fitting to (longSide - 0.5),
- *   so top/bottom land flush; the small side margins remain as the
- *   normal centering bands for non-square content
+ * - dark background with orange squares
+ * - every square drawn with a uniform half-unit gap on both axes, so squares
+ *   stay perfectly square (no boundary stretching)
+ * - scaled to the gap-trimmed longer side: the flush axis is edge-to-edge,
+ *   and any remainder becomes a symmetric margin on the other axis
  */
 
 export type Rect = [x: number, y: number, size: number];
 export type ViewBox = [minX: number, minY: number, width: number, height: number];
 
 export const BITMAP_BG = "#0d0d0d";
-export const BITMAP_FG = "#ffa500";
+export const BITMAP_FG = "#f7921c";
 
 export interface DrawOptions {
   size?: number;
@@ -23,6 +24,10 @@ export interface DrawOptions {
    *  (default, relatively equal bands), false = flush top-left, all
    *  excess pushed to right/bottom. */
   centered?: boolean;
+  /** Square color (hex). Default #f7921c. */
+  parcels?: string;
+  /** Background color (hex). Default #0d0d0d. */
+  gaps?: string;
 }
 
 /** Draw a bitmap into an existing 2D context (square canvas of `size` px). */
@@ -36,6 +41,8 @@ export function drawBitmapToContext(
     typeof sizeOrOpts === "number" ? { size: sizeOrOpts } : sizeOrOpts;
   const size = opts.size ?? 1024;
   const centered = opts.centered ?? true;
+  const bg = opts.gaps ?? BITMAP_BG;
+  const fg = opts.parcels ?? BITMAP_FG;
   const [, , vbW, vbH] = viewBox;
   const width = Math.max(1, vbW);
   const height = Math.max(1, vbH);
@@ -52,24 +59,16 @@ export function drawBitmapToContext(
     : 0;
   const gap = 0.5 * scale;
 
-  ctx.fillStyle = BITMAP_BG;
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, size, size);
 
-  ctx.fillStyle = BITMAP_FG;
+  ctx.fillStyle = fg;
   for (const [x, y, s] of rects) {
     if (s <= 0) continue;
     // Squares are ALWAYS square: uniform -0.5 gap on both axes.
     const w = Math.max(1, s * scale - gap);
     ctx.fillRect(offsetX + x * scale, offsetY + y * scale, w, w);
   }
-}
-
-/** Square canvas dimensions for a bitmap (always size x size). */
-export function bitmapCanvasSize(
-  _viewBox: ViewBox,
-  size = 1024
-): { width: number; height: number } {
-  return { width: size, height: size };
 }
 
 /** Create a standalone square canvas element with the bitmap rendered. */
