@@ -67,12 +67,13 @@ function rasterize(
     scaleUnits !== undefined
       ? scaleUnits
       : size / (Math.max(width, height) - 0.5);
+  // Horizontal: centered or flush left. Vertical: always flush to the top,
+  // so the artwork never starts with a blank band above it — any vertical
+  // slack from non-square content falls below the image.
   const offsetX = centered
     ? Math.floor((size - (width - 0.5) * scale) / 2)
     : 0;
-  const offsetY = centered
-    ? Math.floor((size - (height - 0.5) * scale) / 2)
-    : 0;
+  const offsetY = 0;
 
   const px = Buffer.alloc(size * size * 4);
   for (let i = 0; i < size * size; i++) {

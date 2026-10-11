@@ -49,8 +49,10 @@ export function renderSvg(
   const contentW = Math.max(1, vbW) - 0.5;
   const contentH = Math.max(1, vbH) - 0.5;
   const side = Math.max(contentW, contentH);
+  // Horizontal: centered or flush left. Vertical: always flush to the top,
+  // so the artwork never starts with a blank band above it.
   const offX = centered ? (side - contentW) / 2 : 0;
-  const offY = centered ? (side - contentH) / 2 : 0;
+  const offY = 0;
 
   const dims =
     opts.size !== undefined

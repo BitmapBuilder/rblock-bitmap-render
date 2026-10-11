@@ -51,12 +51,12 @@ export function drawBitmapToContext(
   // squares, makes the flush axes edge-to-edge, keeps the remainder as
   // bands on the other side (centered) or right/bottom (top-left aligned).
   const scale = size / (Math.max(width, height) - 0.5);
+  // Horizontal: centered or flush left. Vertical: always flush to the top,
+  // so the artwork never starts with a blank band above it.
   const offsetX = centered
     ? Math.floor((size - (width - 0.5) * scale) / 2)
     : 0;
-  const offsetY = centered
-    ? Math.floor((size - (height - 0.5) * scale) / 2)
-    : 0;
+  const offsetY = 0;
   const gap = 0.5 * scale;
 
   ctx.fillStyle = bg;

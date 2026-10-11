@@ -18,13 +18,6 @@ Or, without npm:
 
     node dist/cli.js --block 830000
 
-## Commands
-
-    npm run render -- --block 830000                     # one block
-    npm run render -- --block 830000 --block 830001      # several blocks
-    npm run render -- --block 830000,830001,830002       # or comma-separated
-    npm run render -- --range 792000-793000              # an inclusive range
-
 ## Flags
 
 | Flag | Default | What it does |
@@ -35,19 +28,37 @@ Or, without npm:
 | `--size N` | `512` | Output size in pixels. |
 | `--parcels HEX` | `#f7921c` | Square color. |
 | `--gaps HEX` | `#0d0d0d` | Background color. |
-| `--native` | off | WebP only. Snap to a whole-pixel grid (every gap exactly equal). Output is the block's natural size, not exactly `--size`. Use for 1:1 display only. |
+| `--native` | off | WebP only. Whole-pixel grid (every gap exactly equal). Output is the block's natural size, not exactly `--size`. For 1:1 display only. |
 | `--out DIR` | `output` | Output directory. |
 | `--no-center` | off | Flush the art to the top-left instead of centering. |
-| `--concurrency N` | `32` | Blocks fetched in parallel. 32 is the measured ceiling. |
+| `--concurrency N` | `32` | Blocks fetched in parallel. |
 | `--skip-existing` | off | Skip blocks already rendered. Use when resuming. |
 
-### Examples
+## Examples
 
+    # one block (SVG, default)
     npm run render -- --block 830000
+
+    # several blocks
+    npm run render -- --block 830000,830001,830002
+
+    # a range
+    npm run render -- --range 792000-793000
+
+    # WebP instead of SVG, at a chosen size
     npm run render -- --block 830000 --webp --size 1024
-    npm run render -- --block 830000 --webp --size 512 --native
-    npm run render -- --block 830000 --parcels "#dff9d3c" --gaps "#1a1a1a"
-    npm run render -- --range 0-900000 --skip-existing
+
+    # custom colors
+    npm run render -- --block 830000 --parcels "#efbf20e3" --gaps "#1a1a1a"
+
+    # a large range as WebP, resuming where it left off, 16 in parallel
+    npm run render -- --range 792000-900000 --webp --skip-existing --concurrency 32
+
+    # flush the art to the top-left
+    npm run render -- --block 830000 --no-center
+
+    # into a specific folder
+    npm run render -- --range 792000-793000 --out bitmapdir
 
 ## Output
 
