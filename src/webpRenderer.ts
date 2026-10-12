@@ -16,6 +16,7 @@
 
 import sharp from "sharp";
 import type { Rect, ViewBox } from "./canvasRenderer.js";
+import { resolveCentered } from "./canvasRenderer.js";
 import { parseHexColor, DEFAULT_PARCELS, DEFAULT_GAPS, type RGB } from "./color.js";
 
 export interface RenderOptions {
@@ -24,6 +25,9 @@ export interface RenderOptions {
   /** Content alignment: true = centered (default), false = flush top-left
    *  with all excess on the right/bottom. Formatting only, no algorithm change. */
   centered?: boolean;
+  /** Auto alignment: center when the bitmap is clearly non-square, flush
+   *  left when it is near-square. Overrides `centered` when set. */
+  auto?: boolean;
   /** Internal supersample resolution. Sizes below this render at SUPER then
    *  downscale. Default 1024. Set equal to `size` to force direct rendering. */
   superResolution?: number;
@@ -119,7 +123,7 @@ export async function renderWebp(
   opts: RenderOptions = {}
 ): Promise<Buffer> {
   const outSize = opts.size ?? 1024;
-  const centered = opts.centered !== false;
+  const centered = resolveCentered(opts.centered, opts.auto, viewBox[2], viewBox[3]);
   const fg = parseHexColor(opts.parcels ?? DEFAULT_PARCELS);
   const bg = parseHexColor(opts.gaps ?? DEFAULT_GAPS);
 

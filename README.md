@@ -31,6 +31,7 @@ Or, without npm:
 | `--native` | off | WebP only. Whole-pixel grid (every gap exactly equal). Output is the block's natural size, not exactly `--size`. For 1:1 display only. |
 | `--out DIR` | `output` | Output directory. |
 | `--no-center` | off | Flush the art to the top-left instead of centering. |
+| `--auto` | off | Center when the bitmap is clearly non-square, flush-left when it is near-square (kills the thin side sliver). |
 | `--concurrency N` | `32` | Blocks fetched in parallel. |
 | `--skip-existing` | off | Skip blocks already rendered. Use when resuming. |
 
@@ -57,6 +58,9 @@ Or, without npm:
     # flush the art to the top-left
     npm run render -- 830000 --no-center
 
+    # auto: center non-square bitmaps, flush near-square ones
+    npm run render -- --range 792000-793000 --auto
+
     # into a specific folder
     npm run render -- --range 792000-793000 --out bitmapdir
 
@@ -69,8 +73,8 @@ Or, without npm:
 
 The SVG is a real vector file, no script. Any viewer draws it fresh at its own
 pixel size, so gaps stay uniform and it is crisp at any resolution. It is also
-small: every square is packed into a single `<path>`, so a full block is a few
-tens of KB (a few KB over brotli).
+compact: squares are drawn as dashed stroked lines, merged into runs per size,
+one `<path>` per size — a full block is a few KB (even smaller over brotli).
 
 WebP is the fallback for pipelines that need a fixed raster.
 

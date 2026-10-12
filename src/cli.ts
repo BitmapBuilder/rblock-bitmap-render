@@ -16,6 +16,7 @@
  *   --native         WebP only: whole-pixel grid
  *   --out DIR        output directory
  *   --no-center      flush top-left instead of centered
+ *   --auto           center when clearly non-square, flush when near-square
  *   --concurrency N  blocks fetched in parallel
  *   --skip-existing  skip already-rendered blocks
  *
@@ -41,6 +42,7 @@ interface Args {
   out: string;
   skipExisting: boolean;
   centered: boolean;
+  auto: boolean;
   native: boolean;
   concurrency: number;
   format: "svg" | "webp";
@@ -66,6 +68,7 @@ function parseArgs(argv: string[]): Args {
   let out = "output";
   let skipExisting = false;
   let centered = true;
+  let auto = false;
   let native = false;
   let concurrency = 32;
   let format: "svg" | "webp" = "svg";
@@ -104,6 +107,8 @@ function parseArgs(argv: string[]): Args {
       skipExisting = true;
     } else if (a === "--no-center") {
       centered = false;
+    } else if (a === "--auto") {
+      auto = true;
     } else if (a === "--svg") {
       format = "svg";
     } else if (a === "--webp") {
@@ -126,14 +131,14 @@ function parseArgs(argv: string[]): Args {
     );
     process.exit(1);
   }
-  return { heights, size, out, skipExisting, centered, concurrency, native, format, parcels, gaps };
+  return { heights, size, out, skipExisting, centered, auto, concurrency, native, format, parcels, gaps };
 }
 
 async function renderBlock(
   height: number,
   args: Args
 ): Promise<void> {
-  const { size, out: outDir, centered, native, format, parcels, gaps } = args;
+  const { size, out: outDir, centered, auto, native, format, parcels, gaps } = args;
   const t0 = Date.now();
   console.log(`block ${height}: fetching /r/block/${height}...`);
   const hex = await fetchRawBlockHex(height);
@@ -147,14 +152,14 @@ async function renderBlock(
   console.log(`  mondrian: ${rects.length} squares, viewBox ${viewBox.join(" ")}`);
 
   if (format === "svg") {
-    const svg = renderSvg(rects, viewBox, { size, centered, parcels, gaps });
+    const svg = renderSvg(rects, viewBox, { size, centered, auto, parcels, gaps });
     const outPath = join(outDir, `${height}.svg`);
     writeFileSync(outPath, svg);
     console.log(`  wrote ${outPath} (${(Buffer.byteLength(svg) / 1024).toFixed(1)} KB, svg ${size}px, ${((Date.now() - t0) / 1000).toFixed(1)}s total)`);
     return;
   }
 
-  const webp = await renderWebp(rects, viewBox, { size, centered, native, parcels, gaps });
+  const webp = await renderWebp(rects, viewBox, { size, centered, auto, native, parcels, gaps });
   const outPath = join(outDir, `${height}.webp`);
   writeFileSync(outPath, webp);
   const mode = native ? "native grid" : "direct";
